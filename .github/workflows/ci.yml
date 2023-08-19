@@ -9,8 +9,7 @@ on:
     tags:
       - '*'
     branches:
-      - main
-      - '*.x'
+      - '*'
 
 env:
   circt: "default"
