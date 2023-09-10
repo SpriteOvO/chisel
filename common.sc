@@ -251,6 +251,8 @@ trait CIRCTPanamaBinderModule
     "mlirContextDestroy",
     "mlirGetDialectHandle__firrtl__",
     "mlirGetDialectHandle__chirrtl__",
+    "mlirGetDialectHandle__sv__",
+    "mlirGetDialectHandle__seq__",
     "mlirDialectHandleLoadDialect",
     // "mlirStringRefCreate", // inline function cannot be generated
     "mlirStringRefCreateFromCString",
@@ -294,7 +296,7 @@ trait CIRCTPanamaBinderModule
     "mlirBlockAppendOwnedOperation",
     "mlirRegionAppendOwnedBlock",
     "mlirOperationStateAddOwnedRegions",
-    "mlirOperationDump",
+    "mlirOperationPrint",
     "mlirExportFIRRTL",
     //
     // FIRRTL Type
@@ -310,6 +312,7 @@ trait CIRCTPanamaBinderModule
     // FIRRTL Attribute
     "firrtlAttrGetPortDirs",
     "firrtlAttrGetParamDecl",
+    "firrtlAttrGetConvention",
     "firrtlAttrGetNameKind",
     "firrtlAttrGetRUW",
     "firrtlAttrGetMemoryInit",
@@ -317,13 +320,34 @@ trait CIRCTPanamaBinderModule
     //
     // CHIRRTL Attribute
     "chirrtlTypeGetCMemory",
-    "chirrtlTypeGetCMemoryPort"
+    "chirrtlTypeGetCMemoryPort",
+
+    "mlirPassManagerCreate",
+    "mlirPassManagerCreateOnOperation",
+    "mlirPassManagerDestroy",
+    "mlirPassManagerGetNestedUnder",
+    "mlirPassManagerRunOnOp",
+    "mlirPassManagerAddOwnedPass",
+    "mlirOpPassManagerGetNestedUnder",
+    "mlirOpPassManagerAddOwnedPass",
+
+    "firtoolPopulateLowerAnnotations",
+    "firtoolPopulateCHIRRTLToLowFIRRTL",
+    "firtoolPopulateLowFIRRTLToHW",
+    "firtoolPopulateHWToSV",
+    "firtoolPopulatePrepareForExportVerilog",
+    "firtoolPopulateExportVerilog",
+    "firtoolPopulateExportSplitVerilog",
+    "firtoolPopulateFinalizeIR",
   ))
 
   def includeConstants = T(Seq(
     // enum FIRRTLPortDirection
     "FIRRTL_PORT_DIR_INPUT",
     "FIRRTL_PORT_DIR_OUTPUT",
+    // enum FIRRTLConvention
+    "FIRRTL_CONVENTION_INTERNAL",
+    "FIRRTL_CONVENTION_SCALARIZED",
     // enum FIRRTLNameKind
     "FIRRTL_NAME_KIND_DROPPABLE_NAME",
     "FIRRTL_NAME_KIND_INTERESTING_NAME",
@@ -353,6 +377,10 @@ trait CIRCTPanamaBinderModule
     "MlirOperation",
     "MlirOperationState",
     "MlirNamedAttribute",
+    "MlirPassManager",
+    "MlirOpPassManager",
+    "MlirPass",
+    "MlirLogicalResult",
     "FIRRTLBundleField"
   ))
 
@@ -369,6 +397,9 @@ trait CIRCTPanamaBinderModule
     "CIRCTCAPIFIRRTL",
     "CIRCTCAPICHIRRTL",
     "CIRCTCAPIHW",
+    "CIRCTCAPISV",
+    "CIRCTCAPISeq",
+    "CIRCTCAPIFirtool",
     "CIRCTCAPIExportFIRRTL",
     "CIRCTCAPIExportVerilog",
     "CIRCTFIRRTL",
