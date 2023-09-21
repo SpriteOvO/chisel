@@ -133,6 +133,14 @@ class PanamaCIRCT {
     CAPI.mlirBlockAppendOwnedOperation(block.get, operation.get)
   }
 
+  def mlirBlockInsertOwnedOperationAfter(block: MlirBlock, reference: MlirOperation, operation: MlirOperation) = {
+    CAPI.mlirBlockInsertOwnedOperationAfter(block.get, reference.get, operation.get)
+  }
+
+  def mlirBlockInsertOwnedOperationBefore(block: MlirBlock, reference: MlirOperation, operation: MlirOperation) = {
+    CAPI.mlirBlockInsertOwnedOperationBefore(block.get, reference.get, operation.get)
+  }
+
   def mlirRegionCreate() = MlirRegion(CAPI.mlirRegionCreate(arena))
 
   def mlirRegionAppendOwnedBlock(region: MlirRegion, block: MlirBlock) = {
@@ -210,8 +218,8 @@ class PanamaCIRCT {
     CAPI.mlirOpPassManagerGetNestedUnder(arena, pm.get, newString(operationName).get)
   )
 
-  def firtoolPopulateLowerAnnotations(pm: MlirPassManager) = MlirLogicalResult(
-    CAPI.firtoolPopulateLowerAnnotations(arena, pm.get)
+  def firtoolPopulatePreprocessTransforms(pm: MlirPassManager) = MlirLogicalResult(
+    CAPI.firtoolPopulatePreprocessTransforms(arena, pm.get)
   )
 
   def firtoolPopulateCHIRRTLToLowFIRRTL(pm: MlirPassManager, module: MlirModule, inputFilename: String) =
@@ -223,10 +231,6 @@ class PanamaCIRCT {
 
   def firtoolPopulateHWToSV(pm: MlirPassManager) = MlirLogicalResult(
     CAPI.firtoolPopulateHWToSV(arena, pm.get)
-  )
-
-  def firtoolPopulatePrepareForExportVerilog(pm: MlirPassManager) = MlirLogicalResult(
-    CAPI.firtoolPopulatePrepareForExportVerilog(arena, pm.get)
   )
 
   def firtoolPopulateExportVerilog(pm: MlirPassManager, callback: String => Unit) = 

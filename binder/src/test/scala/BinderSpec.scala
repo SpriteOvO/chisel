@@ -26,6 +26,18 @@ class Blinky(freq: Int, startOn: Boolean = false) extends Module {
   io.led0 := led
 }
 
+class SyncReadMemTest extends Module {
+  val io = IO(new Bundle {
+    val enable = Input(Bool())
+    val write = Input(Bool())
+    val addr = Input(UInt(10.W))
+    val dataIn = Input(UInt(32.W))
+    val dataOut = Output(UInt(32.W))
+  })
+  val mem = SyncReadMem(1024, UInt(32.W))
+  io.dataOut := mem.read(io.dataOut, io.enable && !io.write)
+}
+
 class BinderTest extends AnyFlatSpec with Matchers {
 
   def StreamString(module: => RawModule, stream: CIRCTConverter => Writable): String = Seq(
@@ -42,17 +54,17 @@ class BinderTest extends AnyFlatSpec with Matchers {
     }
     .get
 
+  // TODO: remove it
+  def mlirString(module:  => RawModule): String = StreamString(module, _.mlirStream)
   def firrtlString(module:  => RawModule): String = StreamString(module, _.firrtlStream)
   def verilogString(module: => RawModule): String = StreamString(module, _.verilogStream)
 
   behavior.of("binder")
 
   it should "generate RTL with circt binder" in {
-    firrtlString(new EmptyModule) should equal(
-      """|FIRRTL version 3.1.0
-         |circuit EmptyModule :
-         |  module EmptyModule :
-         |""".stripMargin)
+    firrtlString(new EmptyModule) should
+      (include("circuit EmptyModule :")
+        .and(include("module EmptyModule :")))
 
     firrtlString(new Blinky(1000)) should
       (include("circuit Blinky")
@@ -70,5 +82,7 @@ class BinderTest extends AnyFlatSpec with Matchers {
         .and(include("output io_led0"))
         .and(include("if (counterWrap)"))
         .and(include("counterWrap_c_value <=")))
+
+    mlirString(new SyncReadMemTest) should equal("")
   }
 }
