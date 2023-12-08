@@ -581,6 +581,124 @@ class PanamaCIRCTConverter extends CIRCTConverter {
         .build()
       firCtx.newItem(id, op.results(0))
     }
+
+    def emitConnect(dest: Reference.Value, srcVal: Reference.Value, loc: MlirLocation): Unit = {
+      val indexType = circt.mlirIntegerTypeGet(32)
+      var src = srcVal
+
+      // TODO: Strict connect
+
+      if (dest.tpe.isInstanceOf[fir.BundleType]) {
+        // Connect all the bundle elements pairwise.
+        val numElements = dest.tpe.asInstanceOf[fir.BundleType].fields.size
+        assert(src.tpe.isInstanceOf[fir.BundleType])
+        assert(src.tpe.asInstanceOf[fir.BundleType].fields.size == numElements)
+
+        def subField(index: Int, value: Reference.Value): Reference.Value = {
+          val opName = if (circt.firrtlTypeIsAOpenBundle(circt.mlirValueGetType(value.value))) {
+            "firrtl.opensubfield"
+          } else {
+            "firrtl.subfield"
+          }
+          val fieldTpe = value.tpe.asInstanceOf[fir.BundleType].fields(index).tpe
+          val op = util
+            .OpBuilder(opName, firCtx.currentBlock, loc)
+            .withNamedAttr("fieldIndex", circt.mlirIntegerAttrGet(indexType, index))
+            .withOperand(value.value)
+            .withResult(util.convert(fieldTpe))
+            .build()
+          Reference.Value(op.results(0), fieldTpe)
+        }
+
+        for (index <- 0 until numElements) {
+          val destField = subField(index, dest)
+          val srcField = subField(index, src)
+          emitConnect(destField, srcField, loc)
+        }
+        return
+      }
+
+      if (dest.tpe.isInstanceOf[fir.VectorType]) {
+        // Connect all the vector elements pairwise.
+        val numElements = dest.tpe.asInstanceOf[fir.VectorType].size
+        assert(src.tpe.isInstanceOf[fir.VectorType])
+        assert(src.tpe.asInstanceOf[fir.VectorType].size == numElements)
+
+        def subIndex(index: Int, value: Reference.Value): Reference.Value = {
+          val fieldTpe = value.tpe.asInstanceOf[fir.VectorType].tpe
+          val op = util
+            .OpBuilder("firrtl.subindex", firCtx.currentBlock, loc)
+            .withNamedAttr("index", circt.mlirIntegerAttrGet(indexType, index))
+            .withOperand(value.value)
+            .withResult(util.convert(fieldTpe))
+            .build()
+          Reference.Value(op.results(0), fieldTpe)
+        }
+
+        for (index <- 0 until numElements) {
+          val destElement = subIndex(index, dest)
+          val srcElement = subIndex(index, src)
+          emitConnect(destElement, srcElement, loc)
+        }
+        return
+      }
+
+      val destWidth = util.getWidthOrSentinel(dest.tpe)
+      val srcWidth = util.getWidthOrSentinel(src.tpe)
+
+      if (!(destWidth < 0 || srcWidth < 0)) {
+        if (destWidth < srcWidth) {
+          val isSignedDest = dest.tpe.isInstanceOf[fir.SIntType]
+          val tmpType = dest.tpe match {
+            case t: fir.UIntType => t
+            case fir.SIntType(width) => fir.UIntType(width)
+          }
+          src = Reference.Value(
+            util
+              .OpBuilder("firrtl.tail", firCtx.currentBlock, loc)
+              .withNamedAttrs(
+                Seq(("amount", circt.mlirIntegerAttrGet(circt.mlirIntegerTypeGet(32), srcWidth - destWidth)))
+              )
+              .withOperands(Seq(src.value))
+              .withResult(util.convert(tmpType))
+              .build()
+              .results(0),
+            tmpType
+          )
+
+          if (isSignedDest) {
+            src = Reference.Value(
+              util
+                .OpBuilder("firrtl.asSInt", firCtx.currentBlock, loc)
+                .withOperands(Seq(src.value))
+                .withResult(util.convert(dest.tpe))
+                .build()
+                .results(0),
+              dest.tpe
+            )
+          }
+        } else if (srcWidth < destWidth) {
+          src = Reference.Value(
+            util
+              .OpBuilder("firrtl.pad", firCtx.currentBlock, loc)
+              .withNamedAttrs(Seq(("amount", circt.mlirIntegerAttrGet(circt.mlirIntegerTypeGet(32), destWidth))))
+              .withOperands(Seq(src.value))
+              .withResult(util.convert(dest.tpe))
+              .build()
+              .results(0),
+            dest.tpe
+          )
+        }
+      } else {
+        // TODO: const cast
+      }
+
+      util
+        .OpBuilder("firrtl.connect", firCtx.currentBlock, loc)
+        .withOperand( /* dest */ dest.value)
+        .withOperand( /* src */ src.value)
+        .build()
+    }
   }
 
   val mlirStream = new Writable {
@@ -687,63 +805,9 @@ class PanamaCIRCTConverter extends CIRCTConverter {
 
   def visitConnect(connect: Connect): Unit = {
     val loc = util.convert(connect.sourceInfo)
-
     val dest = util.referTo(connect.loc.id, loc)
     var src = util.referTo(connect.exp, loc)
-
-    val destWidth = util.getWidthOrSentinel(dest.tpe)
-    val srcWidth = util.getWidthOrSentinel(src.tpe)
-
-    if (!(destWidth < 0 || srcWidth < 0)) {
-      if (destWidth < srcWidth) {
-        val isSignedDest = dest.tpe.isInstanceOf[fir.SIntType]
-        val tmpType = dest.tpe match {
-          case t: fir.UIntType => t
-          case fir.SIntType(width) => fir.UIntType(width)
-        }
-        src = Reference.Value(
-          util
-            .OpBuilder("firrtl.tail", firCtx.currentBlock, loc)
-            .withNamedAttrs(
-              Seq(("amount", circt.mlirIntegerAttrGet(circt.mlirIntegerTypeGet(32), srcWidth - destWidth)))
-            )
-            .withOperands(Seq(src.value))
-            .withResult(util.convert(tmpType))
-            .build()
-            .results(0),
-          tmpType
-        )
-
-        if (isSignedDest) {
-          src = Reference.Value(
-            util
-              .OpBuilder("firrtl.asSInt", firCtx.currentBlock, loc)
-              .withOperands(Seq(src.value))
-              .withResult(util.convert(dest.tpe))
-              .build()
-              .results(0),
-            dest.tpe
-          )
-        }
-      } else if (srcWidth < destWidth) {
-        src = Reference.Value(
-          util
-            .OpBuilder("firrtl.pad", firCtx.currentBlock, loc)
-            .withNamedAttrs(Seq(("amount", circt.mlirIntegerAttrGet(circt.mlirIntegerTypeGet(32), destWidth))))
-            .withOperands(Seq(src.value))
-            .withResult(util.convert(dest.tpe))
-            .build()
-            .results(0),
-          dest.tpe
-        )
-      }
-    }
-
-    util
-      .OpBuilder("firrtl.connect", firCtx.currentBlock, loc)
-      .withOperand( /* dest */ dest.value)
-      .withOperand( /* src */ src.value)
-      .build()
+    util.emitConnect(dest, src, loc)
   }
 
   def visitDefWire(defWire: DefWire): Unit = {
