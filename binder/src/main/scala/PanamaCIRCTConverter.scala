@@ -597,7 +597,8 @@ class PanamaCIRCTConverter extends CIRCTConverter {
 
       if (dest.tpe.isInstanceOf[fir.BundleType]) {
         // Connect all the bundle elements pairwise.
-        val numElements = dest.tpe.asInstanceOf[fir.BundleType].fields.size
+        val destBundle = dest.tpe.asInstanceOf[fir.BundleType]
+        val numElements = destBundle.fields.size
         assert(src.tpe.isInstanceOf[fir.BundleType])
         assert(src.tpe.asInstanceOf[fir.BundleType].fields.size == numElements)
 
@@ -618,9 +619,13 @@ class PanamaCIRCTConverter extends CIRCTConverter {
         }
 
         for (index <- 0 until numElements) {
-          val destField = subField(index, dest)
-          val srcField = subField(index, src)
-          emitConnect(destField, srcField, loc)
+          var destField = subField(index, dest)
+          var srcField = subField(index, src)
+          if (destBundle.fields(index).flip == fir.Flip) {
+            emitConnect(srcField, destField, loc)
+          } else {
+            emitConnect(destField, srcField, loc)
+          }
         }
         return
       }
