@@ -157,7 +157,7 @@ trait HasJextractGeneratedSources
   override def generatedSources: T[Seq[PathRef]] = T {
     super.generatedSources() ++ {
       // @formatter:off
-      os.proc(
+      val p = os.proc(
         Seq("jextract", header().path.toString)
           ++ includePaths().flatMap(p => Seq("-I", p.path.toString))
           ++ Seq(
@@ -172,8 +172,10 @@ trait HasJextractGeneratedSources
           includeUnions().flatMap(f => Seq("--include-union", f)) ++
           includeVars().flatMap(f => Seq("--include-var", f)) ++
           linkLibraries().flatMap(l => Seq("-l", l))
-      ).call(T.dest)
+      )
       // @formatter:on
+      println(s"\n\nRun: ${p.commandChunks.mkString(" ")}\n\n")
+      p.call(T.dest)
       Lib
         .findSourceFiles(os.walk(T.dest).map(PathRef(_)), Seq("java"))
         .distinct
